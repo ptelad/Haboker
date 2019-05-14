@@ -1,14 +1,15 @@
 package com.example.haboker;
 
+import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
 import com.android.volley.Request;
@@ -19,12 +20,17 @@ import com.android.volley.toolbox.Volley;
 import com.example.haboker.XML.Segment;
 import com.example.haboker.XML.Segments;
 import com.example.haboker.XML.SimpleXmlRequest;
+import com.google.android.exoplayer2.Player;
 
-public class MainActivity extends AppCompatActivity implements PlayerListener {
+public class MainActivity extends AppCompatActivity implements PlayerListener, SeekBar.OnSeekBarChangeListener {
     private RecyclerView rv;
     private SegmentsAdapter segmentsAdapter;
     private SegmentPlayer segmentPlayer;
     private ImageButton playPauseButton;
+    private boolean isSeeking = false;
+    private SeekBar seekBar;
+    private TextView progressText;
+    private TextView durationText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,6 +39,10 @@ public class MainActivity extends AppCompatActivity implements PlayerListener {
 
         segmentPlayer = new SegmentPlayer(getApplicationContext(), this);
         playPauseButton = findViewById(R.id.playpuase);
+        seekBar = findViewById(R.id.seekBar);
+        seekBar.setOnSeekBarChangeListener(this);
+        progressText = findViewById(R.id.progressText);
+        durationText = findViewById(R.id.durationText);
 
         rv = findViewById(R.id.rv);
         rv.setHasFixedSize(true);
@@ -82,6 +92,60 @@ public class MainActivity extends AppCompatActivity implements PlayerListener {
 
     }
 
+    @Override
+    public void onEnded() {
+
+    }
+
+    @Override
+    public void onTimeUpdate(long position, long buffered, long duration) {
+        if (!isSeeking) {
+            int progressPosition = (int) (((float) position / (float) duration) * 100);
+            int bufferedPosition = (int) (((float) buffered / (float) duration) * 100);
+            seekBar.setProgress(progressPosition);
+            seekBar.setSecondaryProgress(bufferedPosition);
+        }
+        progressText.setText(getReadbleTime(position));
+        durationText.setText(getReadbleTime(duration));
+    }
+
+    private String getReadbleTime(long millis) {
+        String result = "";
+
+        int h = (int) ((millis / 1000) / 3600);
+        int m = (int) (((millis / 1000) / 60) % 60);
+        int s = (int) ((millis / 1000) % 60);
+
+        if (h > 0) {
+            result += h + ":";
+        }
+        String mStr = "0" + m;
+        String sStr = "0" + s;
+        mStr = mStr.substring(mStr.length() - 2);
+        sStr = sStr.substring(sStr.length() - 2);
+
+        result += mStr + ":" + sStr;
+
+        return result;
+    }
+
+    @Override
+    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+        // Stub
+    }
+
+    @Override
+    public void onStartTrackingTouch(SeekBar seekBar) {
+        isSeeking = true;
+    }
+
+    @Override
+    public void onStopTrackingTouch(SeekBar seekBar) {
+        float progress = seekBar.getProgress();
+        System.out.println("seek! " + progress);
+        segmentPlayer.seek(progress / 100);
+        isSeeking = false;
+    }
 
     private class SegmentsAdapter extends RecyclerView.Adapter<SegmentsAdapter.SegmentViewHolder> implements View.OnClickListener {
         public Segments segments;
