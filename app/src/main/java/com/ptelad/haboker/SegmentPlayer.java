@@ -16,6 +16,7 @@ import android.support.annotation.Nullable;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.media.session.MediaSessionCompat;
 
+import com.example.haboker.R;
 import com.ptelad.haboker.XML.Segment;
 import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayerFactory;
@@ -65,6 +66,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         pnm.setFastForwardIncrementMs(10000);
         pnm.setRewindIncrementMs(10000);
         pnm.setStopAction(null);
+        pnm.setSmallIcon(R.drawable.ic_radio_icon);
         pnm.setNotificationListener(new PlayerNotificationManager.NotificationListener() {
             @Override
             public void onNotificationStarted(int notificationId, Notification notification) {
