@@ -30,6 +30,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     public static final String TIME_UPDATED = "TIME_UPDATED";
     public static SegmentPlayer instance;
     private SimpleExoPlayer exoPlayer;
+    private PlayerNotificationManager pnm;
     private boolean isPlaying = false;
     private TimerRunnable timerRunnable;
 
@@ -43,7 +44,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         exoPlayer.addListener(this);
         timerRunnable = new TimerRunnable();
         timerRunnable.run();
-        PlayerNotificationManager pnm = new PlayerNotificationManager(this, MainActivity.CHANNEL_ID, 0, this);
+        pnm = new PlayerNotificationManager(this, MainActivity.CHANNEL_ID, 0, this);
         pnm.setPlayer(exoPlayer);
         pnm.setUseNavigationActions(false);
         pnm.setFastForwardIncrementMs(10000);
@@ -131,6 +132,15 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         } else {
             sendPlaybackEvent(PAUSED);
         }
+    }
+
+    @Override
+    public void onDestroy() {
+        pnm.setPlayer(null);
+        exoPlayer.release();
+        exoPlayer = null;
+
+        super.onDestroy();
     }
 
     private void sendPlaybackEvent(String event) {

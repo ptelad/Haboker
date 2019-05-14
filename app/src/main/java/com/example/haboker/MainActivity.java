@@ -153,6 +153,12 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
         isSeeking = false;
     }
 
+    @Override
+    protected void onDestroy() {
+        stopService(new Intent(this, SegmentPlayer.class));
+        super.onDestroy();
+    }
+
     private void createNotificationChannel() {
         // Create the NotificationChannel, but only on API 26+ because
         // the NotificationChannel class is new and not in the support library
@@ -218,7 +224,6 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            System.out.println("RECIEVED: " + intent.toString());
             String status = intent.getStringExtra("status");
             switch (status) {
                 case SegmentPlayer.PLAYING:
