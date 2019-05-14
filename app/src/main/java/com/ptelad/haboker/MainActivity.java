@@ -84,7 +84,7 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
 
     private void onSegmentClicked(Segment segment) {
         System.out.println("Segment clicked!! " + segment.RecordedProgramsName);
-        SegmentPlayer.getInstance().start(segment);
+        SegmentPlayer.getInstance().start(segment, 0);
     }
 
     public void playPauseButtonPressed(View v) {

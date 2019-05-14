@@ -4,6 +4,7 @@ import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -39,9 +40,12 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     public static SegmentPlayer instance;
     private SimpleExoPlayer exoPlayer;
     private PlayerNotificationManager pnm;
+    private boolean segmentLoadedFromStorage = false;
     private boolean isPlaying = false;
-    private TimerRunnable timerRunnable;
+    private long timeProgress = 0;
+    private long duration = 0;
     private Segment currentSegment;
+    private TimerRunnable timerRunnable;
     private MediaSessionCompat mediaSession;
     private MediaSessionConnector mediaSessionConnector;
 
@@ -50,6 +54,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         super.onCreate();
 
         instance = this;
+        loadSegment();
         exoPlayer = ExoPlayerFactory.newSimpleInstance(this);
         exoPlayer.addListener(this);
         timerRunnable = new TimerRunnable();
@@ -128,16 +133,25 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         return instance;
     }
 
-    public void start(Segment segment) {
+    public void start(Segment segment, long startFrom) {
+        segmentLoadedFromStorage = false;
         currentSegment = segment;
         DefaultDataSourceFactory dataSourceFactory = new DefaultDataSourceFactory(this, Util.getUserAgent(this, "eco99fm"));
         MediaSource mediaSource = new ExtractorMediaSource.Factory(dataSourceFactory).createMediaSource(Uri.parse(segment.RecordedProgramsDownloadFile));
         exoPlayer.prepare(mediaSource);
         mediaSession.setActive(true);
+        if (startFrom > 0) {
+            exoPlayer.seekTo(startFrom);
+        }
         exoPlayer.setPlayWhenReady(true);
     }
 
     public void playPause() {
+        if (segmentLoadedFromStorage) {
+            start(currentSegment, timeProgress);
+            return;
+        }
+
         if (isPlaying) {
             exoPlayer.setPlayWhenReady(false);
         } else {
@@ -173,6 +187,32 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         }
     }
 
+    private void saveSegment() {
+        SharedPreferences sp = getSharedPreferences("haboker", MODE_PRIVATE);
+        SharedPreferences.Editor editor = sp.edit();
+        editor.putString("url", currentSegment.RecordedProgramsDownloadFile);
+        editor.putString("image", currentSegment.RecordedProgramsImg);
+        editor.putString("title", currentSegment.RecordedProgramsName);
+        editor.putLong("progress", timeProgress);
+        editor.putLong("duration", duration);
+        editor.apply();
+    }
+
+    private void loadSegment() {
+        SharedPreferences sp = getSharedPreferences("haboker", MODE_PRIVATE);
+        String url = sp.getString("url", null);
+        if (url != null) {
+            currentSegment = new Segment();
+            currentSegment.RecordedProgramsDownloadFile = url;
+            currentSegment.RecordedProgramsImg = sp.getString("image", "");
+            currentSegment.RecordedProgramsName = sp.getString("title", "");
+            timeProgress = sp.getLong("progress", 0);
+            duration = sp.getLong("duration", 0);
+            sendTimeUpdateEvent(timeProgress, 0, duration);
+            segmentLoadedFromStorage = true;
+        }
+    }
+
     @Override
     public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
         System.out.println("Play when ready: " + playWhenReady);
@@ -188,10 +228,12 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
                 ExoPlaybackException playbackError = exoPlayer.getPlaybackError();
                 if (playbackError != null) {
                     System.out.println(playbackError.toString());
+                    start(currentSegment, timeProgress);
+                } else {
+                    sendPlaybackEvent(ENDED);
+                    isPlaying = false;
+                    mediaSession.setActive(false);
                 }
-                sendPlaybackEvent(ENDED);
-                isPlaying = false;
-                mediaSession.setActive(false);
             }
         } else {
             sendPlaybackEvent(PAUSED);
@@ -203,6 +245,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         pnm.setPlayer(null);
         exoPlayer.release();
         exoPlayer = null;
+        saveSegment();
 
         super.onDestroy();
     }
@@ -282,7 +325,9 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         @Override
         public void run() {
             if (isPlaying && exoPlayer.getDuration() > 0) {
-                sendTimeUpdateEvent(exoPlayer.getCurrentPosition(), exoPlayer.getBufferedPosition(), exoPlayer.getDuration());
+                timeProgress = exoPlayer.getContentPosition();
+                duration = exoPlayer.getDuration();
+                sendTimeUpdateEvent(timeProgress, exoPlayer.getBufferedPosition(), duration);
             }
             handler.postDelayed(this, 1000);
         }
