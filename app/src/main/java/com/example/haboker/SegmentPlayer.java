@@ -50,6 +50,30 @@ public class SegmentPlayer implements Player.EventListener {
         exoPlayer.seekTo((long)(exoPlayer.getDuration() * percent));
     }
 
+    public void jumpForward() {
+        if (isPlaying) {
+            long seekTo = exoPlayer.getCurrentPosition() + 10000;
+            if (seekTo > exoPlayer.getDuration()) {
+                seekTo = exoPlayer.getDuration();
+            }
+
+            exoPlayer.seekTo(seekTo);
+            listener.onTimeUpdate(seekTo, exoPlayer.getBufferedPosition(), exoPlayer.getDuration());
+        }
+    }
+
+    public void jumpBackwards() {
+        if (isPlaying) {
+            long seekTo = exoPlayer.getCurrentPosition() - 10000;
+            if (seekTo < 0) {
+                seekTo = 0;
+            }
+
+            exoPlayer.seekTo(seekTo);
+            listener.onTimeUpdate(seekTo, exoPlayer.getBufferedPosition(), exoPlayer.getDuration());
+        }
+    }
+
     @Override
     public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
         System.out.println("Play when ready: " + playWhenReady);

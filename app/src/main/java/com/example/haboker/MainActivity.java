@@ -77,6 +77,14 @@ public class MainActivity extends AppCompatActivity implements PlayerListener, S
         segmentPlayer.playPause();
     }
 
+    public void jumpForwardPressed(View v) {
+        segmentPlayer.jumpForward();
+    }
+
+    public void jumpBackwardPressed(View v) {
+        segmentPlayer.jumpBackwards();
+    }
+
     @Override
     public void onPlaying() {
         playPauseButton.setImageResource(R.drawable.exo_controls_pause);
