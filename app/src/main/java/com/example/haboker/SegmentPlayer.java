@@ -7,16 +7,20 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.ResultReceiver;
 import android.support.annotation.Nullable;
 import android.support.v4.content.LocalBroadcastManager;
+import android.support.v4.media.session.MediaSessionCompat;
 
 import com.example.haboker.XML.Segment;
 import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.SimpleExoPlayer;
+import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector;
 import com.google.android.exoplayer2.source.ExtractorMediaSource;
 import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.ui.PlayerNotificationManager;
@@ -38,7 +42,8 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     private boolean isPlaying = false;
     private TimerRunnable timerRunnable;
     private Segment currentSegment;
-
+    private MediaSessionCompat mediaSession;
+    private MediaSessionConnector mediaSessionConnector;
 
     @Override
     public void onCreate() {
@@ -66,6 +71,57 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
                 stopSelf();
             }
         });
+
+        mediaSession = new MediaSessionCompat(this, "haboker");
+        pnm.setMediaSessionToken(mediaSession.getSessionToken());
+        mediaSessionConnector = new MediaSessionConnector(mediaSession);
+        mediaSessionConnector.setPlayer(exoPlayer, null);
+        mediaSessionConnector.setQueueNavigator(new MediaSessionConnector.QueueNavigator() {
+            @Override
+            public long getSupportedQueueNavigatorActions(@Nullable Player player) {
+                return MediaSessionConnector.QueueNavigator.ACTIONS;
+            }
+
+            @Override
+            public void onTimelineChanged(Player player) {
+
+            }
+
+            @Override
+            public void onCurrentWindowIndexChanged(Player player) {
+
+            }
+
+            @Override
+            public long getActiveQueueItemId(@Nullable Player player) {
+                return 0;
+            }
+
+            @Override
+            public void onSkipToPrevious(Player player) {
+                jumpBackwards();
+            }
+
+            @Override
+            public void onSkipToQueueItem(Player player, long id) {
+
+            }
+
+            @Override
+            public void onSkipToNext(Player player) {
+                jumpForward();
+            }
+
+            @Override
+            public String[] getCommands() {
+                return new String[0];
+            }
+
+            @Override
+            public void onCommand(Player player, String command, Bundle extras, ResultReceiver cb) {
+
+            }
+        });
     }
 
     public static SegmentPlayer getInstance() {
@@ -77,6 +133,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         DefaultDataSourceFactory dataSourceFactory = new DefaultDataSourceFactory(this, Util.getUserAgent(this, "eco99fm"));
         MediaSource mediaSource = new ExtractorMediaSource.Factory(dataSourceFactory).createMediaSource(Uri.parse(segment.RecordedProgramsDownloadFile));
         exoPlayer.prepare(mediaSource);
+        mediaSession.setActive(true);
         exoPlayer.setPlayWhenReady(true);
     }
 
@@ -134,6 +191,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
                 }
                 sendPlaybackEvent(ENDED);
                 isPlaying = false;
+                mediaSession.setActive(false);
             }
         } else {
             sendPlaybackEvent(PAUSED);
