@@ -240,6 +240,14 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         }
     }
 
+    public long getTimeProgress() {
+        return timeProgress;
+    }
+
+    public long getDuration() {
+        return duration;
+    }
+
     @Override
     public void onDestroy() {
         pnm.setPlayer(null);

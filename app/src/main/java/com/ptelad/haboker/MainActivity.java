@@ -113,8 +113,8 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
             int bufferedPosition = (int) (((float) buffered / (float) duration) * 100);
             seekBar.setProgress(progressPosition);
             seekBar.setSecondaryProgress(bufferedPosition);
+            progressText.setText(getReadableTime(position));
         }
-        progressText.setText(getReadableTime(position));
         durationText.setText(getReadableTime(duration));
     }
 
@@ -140,7 +140,10 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
 
     @Override
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-        // Stub
+        if (fromUser && isSeeking) {
+            long newTime = (long)(SegmentPlayer.getInstance().getDuration() * ((float)progress/100));
+            progressText.setText(getReadableTime(newTime));
+        }
     }
 
     @Override
