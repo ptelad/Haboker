@@ -15,6 +15,15 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
+        <ImageButton
+            android:id="@+id/playpuase"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@android:color/transparent"
+            android:onClick="playPauseButtonPressed"
+            android:tint="#F70000"
+            app:srcCompat="@drawable/exo_icon_play" />
     </LinearLayout>
 
     <android.support.v7.widget.RecyclerView

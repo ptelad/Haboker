@@ -8,29 +8,31 @@ import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
-import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 import com.example.haboker.XML.Segment;
 import com.example.haboker.XML.Segments;
 import com.example.haboker.XML.SimpleXmlRequest;
 
-import java.util.ArrayList;
-import java.util.List;
-
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements PlayerListener {
     private RecyclerView rv;
     private SegmentsAdapter segmentsAdapter;
+    private SegmentPlayer segmentPlayer;
+    private ImageButton playPauseButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        segmentPlayer = new SegmentPlayer(getApplicationContext(), this);
+        playPauseButton = findViewById(R.id.playpuase);
 
         rv = findViewById(R.id.rv);
         rv.setHasFixedSize(true);
@@ -58,6 +60,26 @@ public class MainActivity extends AppCompatActivity {
 
     private void onSegmentClicked(Segment segment) {
         System.out.println("Segment clicked!! " + segment.RecordedProgramsName);
+        segmentPlayer.start(segment.RecordedProgramsDownloadFile);
+    }
+
+    public void playPauseButtonPressed(View v) {
+        segmentPlayer.playPause();
+    }
+
+    @Override
+    public void onPlaying() {
+        playPauseButton.setImageResource(R.drawable.exo_controls_pause);
+    }
+
+    @Override
+    public void onPaused() {
+        playPauseButton.setImageResource(R.drawable.exo_controls_play);
+    }
+
+    @Override
+    public void onBuffering() {
+
     }
 
 
