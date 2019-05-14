@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
+    private RecyclerView rv;
     private SegmentsAdapter segmentsAdapter;
 
     @Override
@@ -31,7 +32,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        RecyclerView rv = findViewById(R.id.rv);
+        rv = findViewById(R.id.rv);
         rv.setHasFixedSize(true);
         rv.setLayoutManager(new LinearLayoutManager(this));
         segmentsAdapter = new SegmentsAdapter();
@@ -55,7 +56,12 @@ public class MainActivity extends AppCompatActivity {
         queue.add(stringRequest);
     }
 
-    private static class SegmentsAdapter extends RecyclerView.Adapter<SegmentsAdapter.SegmentViewHolder> {
+    private void onSegmentClicked(Segment segment) {
+        System.out.println("Segment clicked!! " + segment.RecordedProgramsName);
+    }
+
+
+    private class SegmentsAdapter extends RecyclerView.Adapter<SegmentsAdapter.SegmentViewHolder> implements View.OnClickListener {
         public Segments segments;
 
         public void setSegments(Segments segments) {
@@ -67,6 +73,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public SegmentViewHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int i) {
             View segmentView = LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.segment, viewGroup, false);
+            segmentView.setOnClickListener(this);
             return new SegmentViewHolder(segmentView);
         }
 
@@ -84,10 +91,17 @@ public class MainActivity extends AppCompatActivity {
             return segments.list.size();
         }
 
-        public static class SegmentViewHolder extends RecyclerView.ViewHolder {
-            public TextView title;
+        @Override
+        public void onClick(View view) {
+            int pos = rv.getChildLayoutPosition(view);
+            onSegmentClicked(segments.list.get(pos));
+        }
 
-            public SegmentViewHolder(View segmentView) {
+
+        class SegmentViewHolder extends RecyclerView.ViewHolder {
+            TextView title;
+
+            SegmentViewHolder(View segmentView) {
                 super(segmentView);
                 title = segmentView.findViewById(R.id.title);
             }
