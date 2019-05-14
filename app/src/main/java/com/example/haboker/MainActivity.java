@@ -17,6 +17,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
@@ -28,6 +29,7 @@ import com.android.volley.toolbox.Volley;
 import com.example.haboker.XML.Segment;
 import com.example.haboker.XML.Segments;
 import com.example.haboker.XML.SimpleXmlRequest;
+import com.squareup.picasso.Picasso;
 
 public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBarChangeListener {
     public static final String CHANNEL_ID = "haboker_playback";
@@ -81,7 +83,7 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
 
     private void onSegmentClicked(Segment segment) {
         System.out.println("Segment clicked!! " + segment.RecordedProgramsName);
-        SegmentPlayer.getInstance().start(segment.RecordedProgramsDownloadFile);
+        SegmentPlayer.getInstance().start(segment);
     }
 
     public void playPauseButtonPressed(View v) {
@@ -193,6 +195,7 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
         public void onBindViewHolder(@NonNull SegmentViewHolder segmentViewHolder, int i) {
             Segment segment = segments.list.get(i);
             segmentViewHolder.title.setText(segment.RecordedProgramsName);
+            Picasso.get().load(segment.RecordedProgramsImg).into(segmentViewHolder.imageView);
         }
 
         @Override
@@ -212,10 +215,12 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
 
         class SegmentViewHolder extends RecyclerView.ViewHolder {
             TextView title;
+            ImageView imageView;
 
             SegmentViewHolder(View segmentView) {
                 super(segmentView);
                 title = segmentView.findViewById(R.id.title);
+                imageView = segmentView.findViewById(R.id.imageView);
             }
         }
     }

@@ -5,12 +5,14 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.support.v4.content.LocalBroadcastManager;
 
+import com.example.haboker.XML.Segment;
 import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.Player;
@@ -20,6 +22,8 @@ import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.ui.PlayerNotificationManager;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.util.Util;
+import com.squareup.picasso.Picasso;
+import com.squareup.picasso.Target;
 
 public class SegmentPlayer extends Service implements Player.EventListener, PlayerNotificationManager.MediaDescriptionAdapter {
     public static final String INTENT_NAME = "SEGMENT_PLAYER";
@@ -33,6 +37,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     private PlayerNotificationManager pnm;
     private boolean isPlaying = false;
     private TimerRunnable timerRunnable;
+    private Segment currentSegment;
 
 
     @Override
@@ -67,9 +72,10 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         return instance;
     }
 
-    public void start(String url) {
+    public void start(Segment segment) {
+        currentSegment = segment;
         DefaultDataSourceFactory dataSourceFactory = new DefaultDataSourceFactory(this, Util.getUserAgent(this, "eco99fm"));
-        MediaSource mediaSource = new ExtractorMediaSource.Factory(dataSourceFactory).createMediaSource(Uri.parse(url));
+        MediaSource mediaSource = new ExtractorMediaSource.Factory(dataSourceFactory).createMediaSource(Uri.parse(segment.RecordedProgramsDownloadFile));
         exoPlayer.prepare(mediaSource);
         exoPlayer.setPlayWhenReady(true);
     }
@@ -160,7 +166,11 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
 
     @Override
     public String getCurrentContentTitle(Player player) {
-        return null;
+        if (currentSegment == null) {
+            return null;
+        }
+
+        return currentSegment.RecordedProgramsName;
     }
 
     @Nullable
@@ -177,7 +187,23 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
 
     @Nullable
     @Override
-    public Bitmap getCurrentLargeIcon(Player player, PlayerNotificationManager.BitmapCallback callback) {
+    public Bitmap getCurrentLargeIcon(Player player, final PlayerNotificationManager.BitmapCallback callback) {
+        Picasso.get().load(currentSegment.RecordedProgramsImg).into(new Target() {
+            @Override
+            public void onBitmapLoaded(Bitmap bitmap, Picasso.LoadedFrom from) {
+                callback.onBitmap(bitmap);
+            }
+
+            @Override
+            public void onBitmapFailed(Exception e, Drawable errorDrawable) {
+
+            }
+
+            @Override
+            public void onPrepareLoad(Drawable placeHolderDrawable) {
+
+            }
+        });
         return null;
     }
 
