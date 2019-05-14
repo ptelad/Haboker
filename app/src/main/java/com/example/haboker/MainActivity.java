@@ -20,7 +20,6 @@ import com.android.volley.toolbox.Volley;
 import com.example.haboker.XML.Segment;
 import com.example.haboker.XML.Segments;
 import com.example.haboker.XML.SimpleXmlRequest;
-import com.google.android.exoplayer2.Player;
 
 public class MainActivity extends AppCompatActivity implements PlayerListener, SeekBar.OnSeekBarChangeListener {
     private RecyclerView rv;
@@ -113,11 +112,11 @@ public class MainActivity extends AppCompatActivity implements PlayerListener, S
             seekBar.setProgress(progressPosition);
             seekBar.setSecondaryProgress(bufferedPosition);
         }
-        progressText.setText(getReadbleTime(position));
-        durationText.setText(getReadbleTime(duration));
+        progressText.setText(getReadableTime(position));
+        durationText.setText(getReadableTime(duration));
     }
 
-    private String getReadbleTime(long millis) {
+    private String getReadableTime(long millis) {
         String result = "";
 
         int h = (int) ((millis / 1000) / 3600);
