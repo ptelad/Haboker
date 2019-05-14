@@ -1,4 +1,4 @@
-package com.example.haboker;
+package com.ptelad.haboker;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -26,9 +26,10 @@ import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.Volley;
-import com.example.haboker.XML.Segment;
-import com.example.haboker.XML.Segments;
-import com.example.haboker.XML.SimpleXmlRequest;
+import com.example.haboker.R;
+import com.ptelad.haboker.XML.Segment;
+import com.ptelad.haboker.XML.Segments;
+import com.ptelad.haboker.XML.SimpleXmlRequest;
 import com.squareup.picasso.Picasso;
 
 public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBarChangeListener {

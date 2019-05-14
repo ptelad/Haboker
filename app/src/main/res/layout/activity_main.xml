@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="#00B8B8B8"
     android:clipToPadding="false"
-    tools:context=".MainActivity">
+    tools:context="com.ptelad.haboker.MainActivity">
 
     <LinearLayout
         android:id="@+id/linearLayout"

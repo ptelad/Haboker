@@ -1,7 +1,6 @@
-package com.example.haboker.XML;
+package com.ptelad.haboker.XML;
 
 import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
 import java.util.Map;
 
 import org.simpleframework.xml.Serializer;

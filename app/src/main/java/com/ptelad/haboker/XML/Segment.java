@@ -1,4 +1,4 @@
-package com.example.haboker.XML;
+package com.ptelad.haboker.XML;
 
 import org.simpleframework.xml.Element;
 import org.simpleframework.xml.Root;
