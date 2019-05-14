@@ -1,7 +1,15 @@
 package com.example.haboker;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -21,10 +29,11 @@ import com.example.haboker.XML.Segment;
 import com.example.haboker.XML.Segments;
 import com.example.haboker.XML.SimpleXmlRequest;
 
-public class MainActivity extends AppCompatActivity implements PlayerListener, SeekBar.OnSeekBarChangeListener {
+public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBarChangeListener {
+    public static final String CHANNEL_ID = "haboker_playback";
+
     private RecyclerView rv;
     private SegmentsAdapter segmentsAdapter;
-    private SegmentPlayer segmentPlayer;
     private ImageButton playPauseButton;
     private boolean isSeeking = false;
     private SeekBar seekBar;
@@ -36,7 +45,7 @@ public class MainActivity extends AppCompatActivity implements PlayerListener, S
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        segmentPlayer = new SegmentPlayer(getApplicationContext(), this);
+        createNotificationChannel();
         playPauseButton = findViewById(R.id.playpuase);
         seekBar = findViewById(R.id.seekBar);
         seekBar.setOnSeekBarChangeListener(this);
@@ -65,46 +74,36 @@ public class MainActivity extends AppCompatActivity implements PlayerListener, S
                 }
         );
         queue.add(stringRequest);
+
+        startService(new Intent(this, SegmentPlayer.class));
+        LocalBroadcastManager.getInstance(getApplicationContext()).registerReceiver(new PlaybackBrodcastReciever(), new IntentFilter(SegmentPlayer.INTENT_NAME));
     }
 
     private void onSegmentClicked(Segment segment) {
         System.out.println("Segment clicked!! " + segment.RecordedProgramsName);
-        segmentPlayer.start(segment.RecordedProgramsDownloadFile);
+        SegmentPlayer.getInstance().start(segment.RecordedProgramsDownloadFile);
     }
 
     public void playPauseButtonPressed(View v) {
-        segmentPlayer.playPause();
+        SegmentPlayer.getInstance().playPause();
     }
 
     public void jumpForwardPressed(View v) {
-        segmentPlayer.jumpForward();
+        SegmentPlayer.getInstance().jumpForward();
     }
 
     public void jumpBackwardPressed(View v) {
-        segmentPlayer.jumpBackwards();
+        SegmentPlayer.getInstance().jumpBackwards();
     }
 
-    @Override
     public void onPlaying() {
         playPauseButton.setImageResource(R.drawable.exo_controls_pause);
     }
 
-    @Override
     public void onPaused() {
         playPauseButton.setImageResource(R.drawable.exo_controls_play);
     }
 
-    @Override
-    public void onBuffering() {
-
-    }
-
-    @Override
-    public void onEnded() {
-
-    }
-
-    @Override
     public void onTimeUpdate(long position, long buffered, long duration) {
         if (!isSeeking) {
             int progressPosition = (int) (((float) position / (float) duration) * 100);
@@ -150,8 +149,22 @@ public class MainActivity extends AppCompatActivity implements PlayerListener, S
     public void onStopTrackingTouch(SeekBar seekBar) {
         float progress = seekBar.getProgress();
         System.out.println("seek! " + progress);
-        segmentPlayer.seek(progress / 100);
+        SegmentPlayer.getInstance().seek(progress / 100);
         isSeeking = false;
+    }
+
+    private void createNotificationChannel() {
+        // Create the NotificationChannel, but only on API 26+ because
+        // the NotificationChannel class is new and not in the support library
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            int importance = NotificationManager.IMPORTANCE_LOW;
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Playback", importance);
+            channel.setShowBadge(false);
+            // Register the channel with the system; you can't change the importance
+            // or other notification behaviors after this
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
     }
 
     private class SegmentsAdapter extends RecyclerView.Adapter<SegmentsAdapter.SegmentViewHolder> implements View.OnClickListener {
@@ -197,6 +210,30 @@ public class MainActivity extends AppCompatActivity implements PlayerListener, S
             SegmentViewHolder(View segmentView) {
                 super(segmentView);
                 title = segmentView.findViewById(R.id.title);
+            }
+        }
+    }
+
+    private class PlaybackBrodcastReciever extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            System.out.println("RECIEVED: " + intent.toString());
+            String status = intent.getStringExtra("status");
+            switch (status) {
+                case SegmentPlayer.PLAYING:
+                    onPlaying();
+                    break;
+                case SegmentPlayer.PAUSED:
+                    onPaused();
+                    break;
+                case SegmentPlayer.TIME_UPDATED:
+                    onTimeUpdate(
+                            intent.getLongExtra("progress", 0),
+                            intent.getLongExtra("buffered", 0),
+                            intent.getLongExtra("duration", 0)
+                    );
+                    break;
             }
         }
     }
