@@ -82,9 +82,15 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
 
         if (SegmentPlayer.getInstance() != null) {
             onTimeUpdate(SegmentPlayer.getInstance().getTimeProgress(), 0, SegmentPlayer.getInstance().getDuration());
+            if (SegmentPlayer.getInstance().isPlaying()) {
+                onPlaying();
+            } else {
+                onPaused();
+            }
+        } else {
+            loadSegment();
         }
         LocalBroadcastManager.getInstance(getApplicationContext()).registerReceiver(new PlaybackBrodcastReciever(), new IntentFilter(SegmentPlayer.INTENT_NAME));
-        loadSegment();
     }
 
     private void startPlayerService(Segment segment) {
@@ -103,7 +109,10 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
     }
 
     public void playPauseButtonPressed(View v) {
-        if (loadedSegment != null) {
+        if (SegmentPlayer.getInstance() == null) {
+            loadSegment();
+            startPlayerService(loadedSegment);
+        } else if (loadedSegment != null) {
             startPlayerService(loadedSegment);
         } else {
             SegmentPlayer.getInstance().playPause();

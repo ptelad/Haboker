@@ -15,6 +15,7 @@ import android.os.PowerManager;
 import android.os.ResultReceiver;
 import android.support.annotation.Nullable;
 import android.support.v4.content.LocalBroadcastManager;
+import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 
 import com.google.android.exoplayer2.ExoPlaybackException;
@@ -46,6 +47,8 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     private boolean isPlaying = false;
     private long duration = 0;
     private Segment currentSegment;
+    private Bitmap segmentImage;
+    private PlayerNotificationManager.BitmapCallback bitmapCallback;
     private TimerRunnable timerRunnable;
     private MediaSessionCompat mediaSession;
     private MediaSessionConnector mediaSessionConnector;
@@ -54,7 +57,6 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     public int onStartCommand(Intent intent, int flags, int startId) {
         currentSegment = intent.getParcelableExtra("segment");
         instance = this;
-//        loadSegment();
         PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"Haboker::Playback");
         exoPlayer = ExoPlayerFactory.newSimpleInstance(this);
@@ -83,7 +85,17 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
 
         mediaSession = new MediaSessionCompat(this, "haboker");
         pnm.setMediaSessionToken(mediaSession.getSessionToken());
-        mediaSessionConnector = new MediaSessionConnector(mediaSession);
+        mediaSessionConnector = new MediaSessionConnector(mediaSession, null, new MediaSessionConnector.MediaMetadataProvider() {
+            @Override
+            public MediaMetadataCompat getMetadata(Player player) {
+                if (segmentImage != null) {
+                    MediaMetadataCompat.Builder builder = new MediaMetadataCompat.Builder();
+                    builder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, segmentImage);
+                    return builder.build();
+                }
+                return null;
+            }
+        });
         mediaSessionConnector.setPlayer(exoPlayer, null);
         mediaSessionConnector.setQueueNavigator(new MediaSessionConnector.QueueNavigator() {
             @Override
@@ -161,6 +173,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
             exoPlayer.seekTo(currentSegment.progress);
         }
         exoPlayer.setPlayWhenReady(true);
+        loadBitmap();
     }
 
     public void playPause() {
@@ -248,6 +261,10 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         return duration;
     }
 
+    public boolean isPlaying() {
+        return isPlaying;
+    }
+
     @Override
     public void onDestroy() {
         System.out.println("Service destroyed!!!");
@@ -280,6 +297,29 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
+    private void loadBitmap() {
+        Picasso.get().load(currentSegment.RecordedProgramsImg).into(new Target() {
+            @Override
+            public void onBitmapLoaded(Bitmap bitmap, Picasso.LoadedFrom from) {
+                segmentImage = bitmap;
+                if (bitmapCallback != null) {
+                    bitmapCallback.onBitmap(segmentImage);
+                }
+                mediaSessionConnector.invalidateMediaSessionMetadata();
+            }
+
+            @Override
+            public void onBitmapFailed(Exception e, Drawable errorDrawable) {
+
+            }
+
+            @Override
+            public void onPrepareLoad(Drawable placeHolderDrawable) {
+
+            }
+        });
+    }
+
     @Override
     public String getCurrentContentTitle(Player player) {
         if (currentSegment == null) {
@@ -304,23 +344,12 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     @Nullable
     @Override
     public Bitmap getCurrentLargeIcon(Player player, final PlayerNotificationManager.BitmapCallback callback) {
-//        Picasso.get().load(currentSegment.RecordedProgramsImg).into(new Target() {
-//            @Override
-//            public void onBitmapLoaded(Bitmap bitmap, Picasso.LoadedFrom from) {
-//                callback.onBitmap(bitmap);
-//            }
-//
-//            @Override
-//            public void onBitmapFailed(Exception e, Drawable errorDrawable) {
-//
-//            }
-//
-//            @Override
-//            public void onPrepareLoad(Drawable placeHolderDrawable) {
-//
-//            }
-//        });
-        return null;
+        if (segmentImage != null) {
+            return segmentImage;
+        } else {
+            bitmapCallback = callback;
+            return null;
+        }
     }
 
     @Nullable
