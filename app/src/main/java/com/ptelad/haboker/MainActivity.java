@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -26,7 +27,7 @@ import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.Volley;
-import com.example.haboker.R;
+import com.ptelad.haboker.R;
 import com.ptelad.haboker.XML.Segment;
 import com.ptelad.haboker.XML.Segments;
 import com.ptelad.haboker.XML.SimpleXmlRequest;
@@ -42,6 +43,7 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
     private SeekBar seekBar;
     private TextView progressText;
     private TextView durationText;
+    private Segment loadedSegment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,17 +80,34 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
         );
         queue.add(stringRequest);
 
-        startService(new Intent(this, SegmentPlayer.class));
+        if (SegmentPlayer.getInstance() != null) {
+            onTimeUpdate(SegmentPlayer.getInstance().getTimeProgress(), 0, SegmentPlayer.getInstance().getDuration());
+        }
         LocalBroadcastManager.getInstance(getApplicationContext()).registerReceiver(new PlaybackBrodcastReciever(), new IntentFilter(SegmentPlayer.INTENT_NAME));
+        loadSegment();
+    }
+
+    private void startPlayerService(Segment segment) {
+        loadedSegment = null;
+        Intent intent = new Intent(this, SegmentPlayer.class);
+        intent.putExtra("segment", segment);
+        startForegroundService(intent);
     }
 
     private void onSegmentClicked(Segment segment) {
         System.out.println("Segment clicked!! " + segment.RecordedProgramsName);
-        SegmentPlayer.getInstance().start(segment, 0);
+        if (SegmentPlayer.getInstance() != null) {
+            stopService(new Intent(this, SegmentPlayer.class));
+        }
+        startPlayerService(segment);
     }
 
     public void playPauseButtonPressed(View v) {
-        SegmentPlayer.getInstance().playPause();
+        if (loadedSegment != null) {
+            startPlayerService(loadedSegment);
+        } else {
+            SegmentPlayer.getInstance().playPause();
+        }
     }
 
     public void jumpForwardPressed(View v) {
@@ -116,6 +135,20 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
             progressText.setText(getReadableTime(position));
         }
         durationText.setText(getReadableTime(duration));
+    }
+
+    private void loadSegment() {
+        SharedPreferences sp = getSharedPreferences("haboker", MODE_PRIVATE);
+        String url = sp.getString("url", null);
+        if (url != null) {
+            loadedSegment = new Segment();
+            loadedSegment.RecordedProgramsDownloadFile = url;
+            loadedSegment.RecordedProgramsImg = sp.getString("image", "");
+            loadedSegment.RecordedProgramsName = sp.getString("title", "");
+            loadedSegment.progress = sp.getLong("progress", 0);
+            long duration = sp.getLong("duration", 0);
+            onTimeUpdate(loadedSegment.progress, 0, duration);
+        }
     }
 
     private String getReadableTime(long millis) {
@@ -147,6 +180,12 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
     }
 
     @Override
+    protected void onDestroy() {
+        System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!App destroyed!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        super.onDestroy();
+    }
+
+    @Override
     public void onStartTrackingTouch(SeekBar seekBar) {
         isSeeking = true;
     }
@@ -157,12 +196,6 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
         System.out.println("seek! " + progress);
         SegmentPlayer.getInstance().seek(progress / 100);
         isSeeking = false;
-    }
-
-    @Override
-    protected void onDestroy() {
-        stopService(new Intent(this, SegmentPlayer.class));
-        super.onDestroy();
     }
 
     private void createNotificationChannel() {
@@ -247,6 +280,9 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
                             intent.getLongExtra("buffered", 0),
                             intent.getLongExtra("duration", 0)
                     );
+                    break;
+                case SegmentPlayer.DISMISSED:
+                    finish();
                     break;
             }
         }

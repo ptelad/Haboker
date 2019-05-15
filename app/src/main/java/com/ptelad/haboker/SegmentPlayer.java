@@ -11,13 +11,12 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.os.ResultReceiver;
 import android.support.annotation.Nullable;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.media.session.MediaSessionCompat;
 
-import com.example.haboker.R;
-import com.ptelad.haboker.XML.Segment;
 import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.Player;
@@ -28,6 +27,7 @@ import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.ui.PlayerNotificationManager;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.util.Util;
+import com.ptelad.haboker.XML.Segment;
 import com.squareup.picasso.Picasso;
 import com.squareup.picasso.Target;
 
@@ -38,12 +38,12 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     public static final String BUFFERING = "BUFFERING";
     public static final String ENDED = "ENDED";
     public static final String TIME_UPDATED = "TIME_UPDATED";
+    public static final String DISMISSED = "DISMISSED";
     public static SegmentPlayer instance;
     private SimpleExoPlayer exoPlayer;
     private PlayerNotificationManager pnm;
-    private boolean segmentLoadedFromStorage = false;
+    private PowerManager.WakeLock wakeLock;
     private boolean isPlaying = false;
-    private long timeProgress = 0;
     private long duration = 0;
     private Segment currentSegment;
     private TimerRunnable timerRunnable;
@@ -51,33 +51,35 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     private MediaSessionConnector mediaSessionConnector;
 
     @Override
-    public void onCreate() {
-        super.onCreate();
-
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        currentSegment = intent.getParcelableExtra("segment");
         instance = this;
-        loadSegment();
+//        loadSegment();
+        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"Haboker::Playback");
         exoPlayer = ExoPlayerFactory.newSimpleInstance(this);
         exoPlayer.addListener(this);
         timerRunnable = new TimerRunnable();
         timerRunnable.run();
-        pnm = new PlayerNotificationManager(this, MainActivity.CHANNEL_ID, 0, this);
-        pnm.setPlayer(exoPlayer);
-        pnm.setUseNavigationActions(false);
-        pnm.setFastForwardIncrementMs(10000);
-        pnm.setRewindIncrementMs(10000);
-        pnm.setStopAction(null);
-        pnm.setSmallIcon(R.drawable.ic_radio_icon);
+        pnm = new PlayerNotificationManager(this, MainActivity.CHANNEL_ID, 101, this);
         pnm.setNotificationListener(new PlayerNotificationManager.NotificationListener() {
             @Override
             public void onNotificationStarted(int notificationId, Notification notification) {
                 startForeground(notificationId, notification);
+                System.out.println("called start forground!!!");
             }
 
             @Override
             public void onNotificationCancelled(int notificationId) {
+                saveSegment();
                 stopSelf();
             }
         });
+        pnm.setPlayer(exoPlayer);
+        pnm.setUseNavigationActions(false);
+        pnm.setFastForwardIncrementMs(10000);
+        pnm.setRewindIncrementMs(10000);
+        pnm.setSmallIcon(R.drawable.ic_radio_icon);
 
         mediaSession = new MediaSessionCompat(this, "haboker");
         pnm.setMediaSessionToken(mediaSession.getSessionToken());
@@ -126,34 +128,42 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
 
             @Override
             public void onCommand(Player player, String command, Bundle extras, ResultReceiver cb) {
-
             }
         });
+        start();
+        return START_STICKY;
     }
 
     public static SegmentPlayer getInstance() {
         return instance;
     }
 
-    public void start(Segment segment, long startFrom) {
-        segmentLoadedFromStorage = false;
-        currentSegment = segment;
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        System.out.println("Task removed!!!");
+        saveSegment();
+        pnm.setPlayer(null);
+        exoPlayer.release();
+        exoPlayer = null;
+        mediaSession.setActive(false);
+        super.onTaskRemoved(rootIntent);
+    }
+
+    public void start() {
+        if (!wakeLock.isHeld()) {
+            wakeLock.acquire();
+        }
         DefaultDataSourceFactory dataSourceFactory = new DefaultDataSourceFactory(this, Util.getUserAgent(this, "eco99fm"));
-        MediaSource mediaSource = new ExtractorMediaSource.Factory(dataSourceFactory).createMediaSource(Uri.parse(segment.RecordedProgramsDownloadFile));
+        MediaSource mediaSource = new ExtractorMediaSource.Factory(dataSourceFactory).createMediaSource(Uri.parse(currentSegment.RecordedProgramsDownloadFile));
         exoPlayer.prepare(mediaSource);
         mediaSession.setActive(true);
-        if (startFrom > 0) {
-            exoPlayer.seekTo(startFrom);
+        if (currentSegment.progress > 0) {
+            exoPlayer.seekTo(currentSegment.progress);
         }
         exoPlayer.setPlayWhenReady(true);
     }
 
     public void playPause() {
-        if (segmentLoadedFromStorage) {
-            start(currentSegment, timeProgress);
-            return;
-        }
-
         if (isPlaying) {
             exoPlayer.setPlayWhenReady(false);
         } else {
@@ -195,24 +205,9 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         editor.putString("url", currentSegment.RecordedProgramsDownloadFile);
         editor.putString("image", currentSegment.RecordedProgramsImg);
         editor.putString("title", currentSegment.RecordedProgramsName);
-        editor.putLong("progress", timeProgress);
+        editor.putLong("progress", currentSegment.progress);
         editor.putLong("duration", duration);
         editor.apply();
-    }
-
-    private void loadSegment() {
-        SharedPreferences sp = getSharedPreferences("haboker", MODE_PRIVATE);
-        String url = sp.getString("url", null);
-        if (url != null) {
-            currentSegment = new Segment();
-            currentSegment.RecordedProgramsDownloadFile = url;
-            currentSegment.RecordedProgramsImg = sp.getString("image", "");
-            currentSegment.RecordedProgramsName = sp.getString("title", "");
-            timeProgress = sp.getLong("progress", 0);
-            duration = sp.getLong("duration", 0);
-            sendTimeUpdateEvent(timeProgress, 0, duration);
-            segmentLoadedFromStorage = true;
-        }
     }
 
     @Override
@@ -222,6 +217,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         isPlaying = playWhenReady;
         if (playWhenReady && playbackState == Player.STATE_READY) {
             sendPlaybackEvent(PLAYING);
+            pnm.setOngoing(true);
         } else if (playWhenReady) {
             if (playbackState == Player.STATE_BUFFERING) {
                 sendPlaybackEvent(BUFFERING);
@@ -230,20 +226,22 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
                 ExoPlaybackException playbackError = exoPlayer.getPlaybackError();
                 if (playbackError != null) {
                     System.out.println(playbackError.toString());
-                    start(currentSegment, timeProgress);
+                    start();
                 } else {
                     sendPlaybackEvent(ENDED);
                     isPlaying = false;
                     mediaSession.setActive(false);
+                    wakeLock.release();
                 }
             }
         } else {
             sendPlaybackEvent(PAUSED);
+            pnm.setOngoing(false);
         }
     }
 
     public long getTimeProgress() {
-        return timeProgress;
+        return currentSegment.progress;
     }
 
     public long getDuration() {
@@ -252,10 +250,17 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
 
     @Override
     public void onDestroy() {
+        System.out.println("Service destroyed!!!");
         pnm.setPlayer(null);
-        exoPlayer.release();
-        exoPlayer = null;
+        if (exoPlayer != null) {
+            exoPlayer.release();
+            exoPlayer = null;
+        }
+        mediaSession.setActive(false);
         saveSegment();
+        if (wakeLock.isHeld()) {
+            wakeLock.release();
+        }
 
         super.onDestroy();
     }
@@ -299,22 +304,22 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     @Nullable
     @Override
     public Bitmap getCurrentLargeIcon(Player player, final PlayerNotificationManager.BitmapCallback callback) {
-        Picasso.get().load(currentSegment.RecordedProgramsImg).into(new Target() {
-            @Override
-            public void onBitmapLoaded(Bitmap bitmap, Picasso.LoadedFrom from) {
-                callback.onBitmap(bitmap);
-            }
-
-            @Override
-            public void onBitmapFailed(Exception e, Drawable errorDrawable) {
-
-            }
-
-            @Override
-            public void onPrepareLoad(Drawable placeHolderDrawable) {
-
-            }
-        });
+//        Picasso.get().load(currentSegment.RecordedProgramsImg).into(new Target() {
+//            @Override
+//            public void onBitmapLoaded(Bitmap bitmap, Picasso.LoadedFrom from) {
+//                callback.onBitmap(bitmap);
+//            }
+//
+//            @Override
+//            public void onBitmapFailed(Exception e, Drawable errorDrawable) {
+//
+//            }
+//
+//            @Override
+//            public void onPrepareLoad(Drawable placeHolderDrawable) {
+//
+//            }
+//        });
         return null;
     }
 
@@ -324,20 +329,16 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         return null;
     }
 
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        return START_STICKY;
-    }
 
     class TimerRunnable implements Runnable {
         final private Handler handler = new Handler();
 
         @Override
         public void run() {
-            if (isPlaying && exoPlayer.getDuration() > 0) {
-                timeProgress = exoPlayer.getContentPosition();
+            if (isPlaying && exoPlayer != null && exoPlayer.getDuration() > 0) {
+                currentSegment.progress = exoPlayer.getContentPosition();
                 duration = exoPlayer.getDuration();
-                sendTimeUpdateEvent(timeProgress, exoPlayer.getBufferedPosition(), duration);
+                sendTimeUpdateEvent(currentSegment.progress, exoPlayer.getBufferedPosition(), duration);
             }
             handler.postDelayed(this, 1000);
         }
