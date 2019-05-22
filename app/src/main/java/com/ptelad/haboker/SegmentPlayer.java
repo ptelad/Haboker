@@ -27,10 +27,18 @@ import com.google.android.exoplayer2.source.ExtractorMediaSource;
 import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.ui.PlayerNotificationManager;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
+import com.google.android.exoplayer2.upstream.cache.Cache;
+import com.google.android.exoplayer2.upstream.cache.CacheDataSource;
+import com.google.android.exoplayer2.upstream.cache.CacheDataSourceFactory;
+import com.google.android.exoplayer2.upstream.cache.CacheEvictor;
+import com.google.android.exoplayer2.upstream.cache.LeastRecentlyUsedCacheEvictor;
+import com.google.android.exoplayer2.upstream.cache.SimpleCache;
 import com.google.android.exoplayer2.util.Util;
 import com.ptelad.haboker.XML.Segment;
 import com.squareup.picasso.Picasso;
 import com.squareup.picasso.Target;
+
+import java.io.File;
 
 public class SegmentPlayer extends Service implements Player.EventListener, PlayerNotificationManager.MediaDescriptionAdapter {
     public static final String INTENT_NAME = "SEGMENT_PLAYER";
@@ -52,6 +60,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     private TimerRunnable timerRunnable;
     private MediaSessionCompat mediaSession;
     private MediaSessionConnector mediaSessionConnector;
+    private Cache cache;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -165,8 +174,12 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         if (!wakeLock.isHeld()) {
             wakeLock.acquire();
         }
+        File cacheFolder = new File(getApplicationContext().getFilesDir(), "cache");
+        CacheEvictor cacheEvictor = new LeastRecentlyUsedCacheEvictor(500 * 1024 * 1024);
+        cache = new SimpleCache(cacheFolder, cacheEvictor);
         DefaultDataSourceFactory dataSourceFactory = new DefaultDataSourceFactory(this, Util.getUserAgent(this, "eco99fm"));
-        MediaSource mediaSource = new ExtractorMediaSource.Factory(dataSourceFactory).createMediaSource(Uri.parse(currentSegment.RecordedProgramsDownloadFile));
+        CacheDataSourceFactory cacheDataSource = new CacheDataSourceFactory(cache, dataSourceFactory, CacheDataSource.FLAG_BLOCK_ON_CACHE | CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR);
+        MediaSource mediaSource = new ExtractorMediaSource.Factory(cacheDataSource).createMediaSource(Uri.parse(currentSegment.RecordedProgramsDownloadFile));
         exoPlayer.prepare(mediaSource);
         mediaSession.setActive(true);
         if (currentSegment.progress > 0) {
@@ -272,6 +285,10 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         if (exoPlayer != null) {
             exoPlayer.release();
             exoPlayer = null;
+        }
+        if (cache != null) {
+            cache.release();
+            cache = null;
         }
         mediaSession.setActive(false);
         saveSegment();
