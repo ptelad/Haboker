@@ -18,10 +18,12 @@ import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 
+import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.SimpleExoPlayer;
+import com.google.android.exoplayer2.audio.AudioAttributes;
 import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector;
 import com.google.android.exoplayer2.source.ExtractorMediaSource;
 import com.google.android.exoplayer2.source.MediaSource;
@@ -70,6 +72,11 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"Haboker::Playback");
         exoPlayer = ExoPlayerFactory.newSimpleInstance(this);
         exoPlayer.addListener(this);
+        AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                .setUsage(C.USAGE_MEDIA)
+                .setContentType(C.CONTENT_TYPE_SPEECH)
+                .build();
+        exoPlayer.setAudioAttributes(audioAttributes, true);
         timerRunnable = new TimerRunnable();
         timerRunnable.run();
         pnm = new PlayerNotificationManager(this, MainActivity.CHANNEL_ID, 101, this);
@@ -295,6 +302,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         if (wakeLock.isHeld()) {
             wakeLock.release();
         }
+        instance = null;
 
         super.onDestroy();
     }
