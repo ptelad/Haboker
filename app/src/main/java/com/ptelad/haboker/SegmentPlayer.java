@@ -233,6 +233,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     }
 
     private void saveSegment() {
+        System.out.println("Saving segment!");
         SharedPreferences sp = getSharedPreferences("haboker", MODE_PRIVATE);
         SharedPreferences.Editor editor = sp.edit();
         editor.putString("url", currentSegment.RecordedProgramsDownloadFile);
@@ -269,6 +270,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
             }
         } else {
             sendPlaybackEvent(PAUSED);
+            saveSegment();
             pnm.setOngoing(false);
         }
     }

@@ -41,6 +41,7 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
     private ImageButton playPauseButton;
     private boolean isSeeking = false;
     private SeekBar seekBar;
+    private TextView segmentTitle;
     private TextView progressText;
     private TextView durationText;
     private Segment loadedSegment;
@@ -51,6 +52,7 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
         setContentView(R.layout.activity_main);
 
         createNotificationChannel();
+        segmentTitle = findViewById(R.id.segmentTitle);
         playPauseButton = findViewById(R.id.playpuase);
         seekBar = findViewById(R.id.seekBar);
         seekBar.setOnSeekBarChangeListener(this);
@@ -106,6 +108,7 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
             stopService(new Intent(this, SegmentPlayer.class));
         }
         startPlayerService(segment);
+        segmentTitle.setText(segment.RecordedProgramsName);
     }
 
     public void playPauseButtonPressed(View v) {
@@ -143,7 +146,7 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
             seekBar.setSecondaryProgress(bufferedPosition);
             progressText.setText(getReadableTime(position));
         }
-        durationText.setText(getReadableTime(duration));
+        durationText.setText("- " + getReadableTime(duration - position));
     }
 
     private void loadSegment() {
@@ -157,6 +160,7 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
             loadedSegment.progress = sp.getLong("progress", 0);
             long duration = sp.getLong("duration", 0);
             onTimeUpdate(loadedSegment.progress, 0, duration);
+            segmentTitle.setText(loadedSegment.RecordedProgramsName);
         }
     }
 
