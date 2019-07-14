@@ -146,7 +146,7 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
             seekBar.setSecondaryProgress(bufferedPosition);
             progressText.setText(getReadableTime(position));
         }
-        durationText.setText("- " + getReadableTime(duration - position));
+        durationText.setText(getReadableTime(duration - position));
     }
 
     private void loadSegment() {
