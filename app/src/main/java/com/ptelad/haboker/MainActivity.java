@@ -66,7 +66,7 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
         rv.setAdapter(segmentsAdapter);
 
         RequestQueue queue = Volley.newRequestQueue(this);
-        SimpleXmlRequest<Segments> stringRequest = new SimpleXmlRequest<>(Request.Method.GET, "http://eco99fm.maariv.co.il/onair/talAndAviadXml.aspx", Segments.class,
+        SimpleXmlRequest<Segments> stringRequest = new SimpleXmlRequest<>(Request.Method.GET, "http://old.eco99.co.il/onair/talAndAviadXml.aspx", Segments.class,
                 new Response.Listener<Segments>() {
                     @Override
                     public void onResponse(Segments response) {
