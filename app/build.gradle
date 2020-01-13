@@ -19,6 +19,7 @@ android {
 
     compileOptions {
         targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility = 1.8
     }
 }
 
@@ -36,4 +37,5 @@ dependencies {
     implementation 'com.google.android.exoplayer:exoplayer:2.9.6'
     implementation 'com.squareup.picasso:picasso:2.71828'
     implementation 'com.google.android.exoplayer:extension-mediasession:2.9.6'
+    implementation 'com.google.code.gson:gson:2.8.6'
 }

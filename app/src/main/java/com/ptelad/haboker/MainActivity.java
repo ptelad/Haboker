@@ -14,6 +14,7 @@ import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -26,11 +27,13 @@ import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
+import com.google.gson.FieldNamingPolicy;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.ptelad.haboker.JSON.Segment;
 import com.ptelad.haboker.R;
-import com.ptelad.haboker.XML.Segment;
-import com.ptelad.haboker.XML.Segments;
-import com.ptelad.haboker.XML.SimpleXmlRequest;
 import com.squareup.picasso.Picasso;
 
 public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBarChangeListener {
@@ -45,6 +48,7 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
     private TextView progressText;
     private TextView durationText;
     private Segment loadedSegment;
+    private Gson gson = new Gson();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,18 +70,15 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
         rv.setAdapter(segmentsAdapter);
 
         RequestQueue queue = Volley.newRequestQueue(this);
-        SimpleXmlRequest<Segments> stringRequest = new SimpleXmlRequest<>(Request.Method.GET, "http://old.eco99.co.il/onair/talAndAviadXml.aspx", Segments.class,
-                new Response.Listener<Segments>() {
-                    @Override
-                    public void onResponse(Segments response) {
-                        segmentsAdapter.setSegments(response);
-                    }
+        StringRequest stringRequest = new StringRequest(Request.Method.GET, "https://eco99fm.maariv.co.il/api/v1/public/programs?page=1&itemsPerPage=11&category_id=8",
+                (response) -> {
+                    Log.i("HABOKER", response);
+                    String segmentsArray = response.substring(12, response.length() - 1);
+                    Segment[] segments = gson.fromJson(segmentsArray, Segment[].class);
+                    segmentsAdapter.setSegments(segments);
                 },
-                new Response.ErrorListener() {
-                    @Override
-                    public void onErrorResponse(VolleyError error) {
-                        System.out.println(error.toString());
-                    }
+                (error) -> {
+                    Log.e("HABOKER", error.getLocalizedMessage());
                 }
         );
         queue.add(stringRequest);
@@ -103,12 +104,12 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
     }
 
     private void onSegmentClicked(Segment segment) {
-        System.out.println("Segment clicked!! " + segment.RecordedProgramsName);
+        System.out.println("Segment clicked!! " + segment.name);
         if (SegmentPlayer.getInstance() != null) {
             stopService(new Intent(this, SegmentPlayer.class));
         }
         startPlayerService(segment);
-        segmentTitle.setText(segment.RecordedProgramsName);
+        segmentTitle.setText(segment.name);
     }
 
     public void playPauseButtonPressed(View v) {
@@ -145,22 +146,17 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
             seekBar.setProgress(progressPosition);
             seekBar.setSecondaryProgress(bufferedPosition);
             progressText.setText(getReadableTime(position));
+            durationText.setText(getReadableTime(duration - position));
         }
-        durationText.setText(getReadableTime(duration - position));
     }
 
     private void loadSegment() {
         SharedPreferences sp = getSharedPreferences("haboker", MODE_PRIVATE);
-        String url = sp.getString("url", null);
-        if (url != null) {
-            loadedSegment = new Segment();
-            loadedSegment.RecordedProgramsDownloadFile = url;
-            loadedSegment.RecordedProgramsImg = sp.getString("image", "");
-            loadedSegment.RecordedProgramsName = sp.getString("title", "");
-            loadedSegment.progress = sp.getLong("progress", 0);
-            long duration = sp.getLong("duration", 0);
-            onTimeUpdate(loadedSegment.progress, 0, duration);
-            segmentTitle.setText(loadedSegment.RecordedProgramsName);
+        String savedSegmentJSON = sp.getString("saved_segment", null);
+        if (savedSegmentJSON != null) {
+            loadedSegment = gson.fromJson(savedSegmentJSON, Segment.class);
+            onTimeUpdate(loadedSegment.progress, 0, loadedSegment.duration);
+            segmentTitle.setText(loadedSegment.name);
         }
     }
 
@@ -187,8 +183,13 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
     @Override
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
         if (fromUser && isSeeking) {
-            long newTime = (long)(SegmentPlayer.getInstance().getDuration() * ((float)progress/100));
+            long duration = SegmentPlayer.getInstance().getDuration();
+            long newTime = (long)(duration * ((float)progress/100));
+            if (newTime > duration) {
+                newTime = duration;
+            }
             progressText.setText(getReadableTime(newTime));
+            durationText.setText(getReadableTime(duration - newTime));
         }
     }
 
@@ -226,9 +227,9 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
     }
 
     private class SegmentsAdapter extends RecyclerView.Adapter<SegmentsAdapter.SegmentViewHolder> implements View.OnClickListener {
-        public Segments segments;
+        public Segment[] segments;
 
-        public void setSegments(Segments segments) {
+        public void setSegments(Segment[] segments) {
             this.segments = segments;
             notifyDataSetChanged();
         }
@@ -243,9 +244,9 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
 
         @Override
         public void onBindViewHolder(@NonNull SegmentViewHolder segmentViewHolder, int i) {
-            Segment segment = segments.list.get(i);
-            segmentViewHolder.title.setText(segment.RecordedProgramsName);
-            Picasso.get().load(segment.RecordedProgramsImg).into(segmentViewHolder.imageView);
+            Segment segment = segments[i];
+            segmentViewHolder.title.setText(segment.name);
+            Picasso.get().load(segment.image_url).into(segmentViewHolder.imageView);
         }
 
         @Override
@@ -253,13 +254,13 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
             if (segments == null) {
                 return 0;
             }
-            return segments.list.size();
+            return segments.length;
         }
 
         @Override
         public void onClick(View view) {
             int pos = rv.getChildLayoutPosition(view);
-            onSegmentClicked(segments.list.get(pos));
+            onSegmentClicked(segments[pos]);
         }
 
 

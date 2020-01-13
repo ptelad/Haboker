@@ -36,7 +36,8 @@ import com.google.android.exoplayer2.upstream.cache.CacheEvictor;
 import com.google.android.exoplayer2.upstream.cache.LeastRecentlyUsedCacheEvictor;
 import com.google.android.exoplayer2.upstream.cache.SimpleCache;
 import com.google.android.exoplayer2.util.Util;
-import com.ptelad.haboker.XML.Segment;
+import com.google.gson.Gson;
+import com.ptelad.haboker.JSON.Segment;
 import com.squareup.picasso.Picasso;
 import com.squareup.picasso.Target;
 
@@ -63,6 +64,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     private MediaSessionCompat mediaSession;
     private MediaSessionConnector mediaSessionConnector;
     private Cache cache;
+    private Gson gson = new Gson();
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -186,7 +188,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         cache = new SimpleCache(cacheFolder, cacheEvictor);
         DefaultDataSourceFactory dataSourceFactory = new DefaultDataSourceFactory(this, Util.getUserAgent(this, "eco99fm"));
         CacheDataSourceFactory cacheDataSource = new CacheDataSourceFactory(cache, dataSourceFactory, CacheDataSource.FLAG_BLOCK_ON_CACHE | CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR);
-        MediaSource mediaSource = new ExtractorMediaSource.Factory(cacheDataSource).createMediaSource(Uri.parse(currentSegment.RecordedProgramsDownloadFile));
+        MediaSource mediaSource = new ExtractorMediaSource.Factory(cacheDataSource).createMediaSource(Uri.parse(currentSegment.download_url));
         exoPlayer.prepare(mediaSource);
         mediaSession.setActive(true);
         if (currentSegment.progress > 0) {
@@ -236,11 +238,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         System.out.println("Saving segment!");
         SharedPreferences sp = getSharedPreferences("haboker", MODE_PRIVATE);
         SharedPreferences.Editor editor = sp.edit();
-        editor.putString("url", currentSegment.RecordedProgramsDownloadFile);
-        editor.putString("image", currentSegment.RecordedProgramsImg);
-        editor.putString("title", currentSegment.RecordedProgramsName);
-        editor.putLong("progress", currentSegment.progress);
-        editor.putLong("duration", duration);
+        editor.putString("saved_segment", gson.toJson(currentSegment));
         editor.apply();
     }
 
@@ -280,7 +278,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     }
 
     public long getDuration() {
-        return duration;
+        return currentSegment.duration;
     }
 
     public boolean isPlaying() {
@@ -325,7 +323,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
     }
 
     private void loadBitmap() {
-        Picasso.get().load(currentSegment.RecordedProgramsImg).into(new Target() {
+        Picasso.get().load(currentSegment.image_url).into(new Target() {
             @Override
             public void onBitmapLoaded(Bitmap bitmap, Picasso.LoadedFrom from) {
                 segmentImage = bitmap;
@@ -353,7 +351,7 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
             return null;
         }
 
-        return currentSegment.RecordedProgramsName;
+        return currentSegment.name;
     }
 
     @Nullable
@@ -393,8 +391,8 @@ public class SegmentPlayer extends Service implements Player.EventListener, Play
         public void run() {
             if (isPlaying && exoPlayer != null && exoPlayer.getDuration() > 0) {
                 currentSegment.progress = exoPlayer.getContentPosition();
-                duration = exoPlayer.getDuration();
-                sendTimeUpdateEvent(currentSegment.progress, exoPlayer.getBufferedPosition(), duration);
+                currentSegment.duration = exoPlayer.getDuration();
+                sendTimeUpdateEvent(currentSegment.progress, exoPlayer.getBufferedPosition(), currentSegment.duration);
             }
             handler.postDelayed(this, 1000);
         }
